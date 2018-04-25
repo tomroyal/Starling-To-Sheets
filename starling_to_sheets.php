@@ -69,12 +69,14 @@ function expandHomeDirectory($path)
 
 $dfr = new DateTime("first day of last month");
 $dt = new DateTime("last day of last month");
-// $df = $dfr->format('Y-m-d');
-// $dt = $dt->format('Y-m-d');
-// $tabname = $dfr->format('M Y'); 
+$df = $dfr->format('Y-m-d');
+$dt = $dt->format('Y-m-d');
+$tabname = $dfr->format('M Y'); 
+/*
 $df = '2018-04-01';
 $dt = '2018-04-20';
 $tabname = 'test-001';
+*/
 
 // do starling api call
 $curl_url = 'https://api.starlingbank.com/api/v1/transactions?from='.$df.'&to='.$dt.'';
