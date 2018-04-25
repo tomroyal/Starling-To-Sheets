@@ -1,0 +1,6 @@
+/vendor
+.DS_Store
+client_secret.json
+credentials.json
+composer.lock
+tomconfig.php
