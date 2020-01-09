@@ -10,6 +10,8 @@
 // required config vars:
 $spreadsheetId = ''; // Google Sheet ID; get it from the url of the document
 $starlingToken = ''; // Starling bank token; get it from https://developer.starlingbank.com/token/list
+$starlingAccUID = ''; // UID of account
+$starlingDefCat = ''; // the default category, also returnd from the accounts endpoint
 
 if(file_exists('./tomconfig.php')){
   // my config file, containing my api key etc
@@ -66,20 +68,21 @@ function expandHomeDirectory($path)
 }
 
 // work out month start/end dates, name for sheet tab
-
+/*
 $dfr = new DateTime("first day of last month");
 $dt = new DateTime("last day of last month");
-$df = $dfr->format('Y-m-d');
-$dt = $dt->format('Y-m-d');
+$df = $dfr->format('Y-m-d').'T00:00:00.000Z';
+$dt = $dt->format('Y-m-d').'T23:59:59.000Z'';
 $tabname = $dfr->format('M Y'); 
-/*
-$df = '2018-04-01';
-$dt = '2018-04-20';
-$tabname = 'test-001';
 */
 
-// do starling api call
-$curl_url = 'https://api.starlingbank.com/api/v1/transactions?from='.$df.'&to='.$dt.'';
+$df = '2019-12-01T00:00:00.000Z';
+$dt = '2019-12-31T23:59:59.000Z';
+$tabname = 'Dec 2019'; 
+
+// do starling api call, now with v2
+$curl_url = 'https://api.starlingbank.com/api/v2/feed/account/'.$starlingAccUID.'/category/'.$starlingDefCat.'/transactions-between?minTransactionTimestamp='.$df.'&maxTransactionTimestamp='.$dt;
+
 $ch = curl_init($curl_url);
 curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "GET");
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -88,10 +91,10 @@ curl_setopt($ch, CURLOPT_HTTPHEADER, array(
   )
 );
 $stresult = curl_exec($ch);
-$stresultarr = json_decode($stresult);
+$sbresult = json_decode($stresult);
 
 // stop if no transactions
-if (count($stresultarr->_embedded->transactions) == 0){
+if (count($sbresult->feedItems) == 0){
   // no transactions to process here..
   echo('no results');
   die;
@@ -111,12 +114,17 @@ catch (Exception $e){
 
 // now add transactions - flip array first so it runs chronologically
 $rowcounter = 1;
-$transactions_reversed = array_reverse($stresultarr->_embedded->transactions);
+$transactions_reversed = array_reverse($sbresult->feedItems);
 foreach ($transactions_reversed as $atransaction){
-  // print_r($atransaction);
-  $range = $tabname.'!A'.$rowcounter.':F'.$rowcounter;
+  $range = $tabname.'!A'.$rowcounter.':E'.$rowcounter;
+  if ($atransaction->direction == 'OUT'){
+    $direction_indicator = '-';
+  }
+  else {
+    $direction_indicator = '';
+  }
   $values = [
-      [$atransaction->currency,$atransaction->amount,$atransaction->balance,$atransaction->created,$atransaction->source,$atransaction->narrative]
+      [$atransaction->amount->currency,$direction_indicator.($atransaction->amount->minorUnits/100),$atransaction->transactionTime,$atransaction->source,$atransaction->counterPartyName]
   ];  
   $requestBody = new Google_Service_Sheets_ValueRange([
       'range' => $range,
